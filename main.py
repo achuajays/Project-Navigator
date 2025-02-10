@@ -166,7 +166,7 @@ if st.button("🎮 Generate Project Ideas", use_container_width=True):
                 ],
                 model="llama-3.3-70b-versatile",
                 temperature=0.7,
-                max_completion_tokens=1024,
+                max_completion_tokens=10000,
                 top_p=1,
                 stop=None,
                 stream=False,
