@@ -2,15 +2,18 @@ import streamlit as st
 from groq import Groq
 import time
 import re
+from fpdf import FPDF
+import io
 
 # Initialize the Groq client
 client = Groq()
 
 # Page configuration with custom theme
 st.set_page_config(
-    page_title="AI Project Ideas Generator",
+    page_title="Project Navigator",
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    page_icon="📚",
 )
 
 # Custom CSS to improve the UI
@@ -34,8 +37,63 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+
+class ProjectPDF(FPDF):
+    def header(self):
+        # Add logo or header image if desired
+        self.set_font('Arial', 'B', 24)
+        self.cell(0, 20, 'Project Navigator', 0, 1, 'C')
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+    def chapter_title(self, title):
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, title, 0, 1, 'L')
+        self.ln(4)
+
+    def chapter_body(self, body):
+        self.set_font('Arial', '', 12)
+        # Split the body into lines and print each line
+        lines = body.split('\n')
+        for line in lines:
+            if line.strip().startswith('-'):
+                self.cell(10)  # Add indentation for list items
+                self.multi_cell(0, 8, line)
+            else:
+                self.multi_cell(0, 8, line)
+        self.ln()
+
+
+def create_pdf(topic, content):
+    pdf = ProjectPDF()
+    pdf.add_page()
+
+    # Add metadata
+
+    pdf.set_title(f"Project Ideas - {topic}")
+    pdf.set_author('Project Navigator')
+
+    # Add content
+    pdf.set_font('Arial', '', 12)
+    pdf.multi_cell(0, 10, f"Generated project ideas for: {topic}\n\n")
+
+    # Split content into projects and format each one
+    projects = content.split('\n\n')
+    for project in projects:
+        if project.strip():
+            pdf.multi_cell(0, 8, project)
+            pdf.ln(4)
+
+    # Return PDF as bytes
+    return pdf.output(dest='S').encode('latin-1')
+
+
 # Main title with description
-st.title("🚀 Project Ideas Generator for Mastery")
+st.title("🚀 Project Navigator ")
 st.markdown("""
     Transform your learning journey with personalized project ideas! 
     Enter your desired topic, select the difficulty level and timeframe, 
@@ -75,29 +133,6 @@ with col2:
         help="How many project ideas would you like?"
     )
 
-
-def format_for_download(markdown_text):
-    """Convert markdown headers to plain text with proper formatting"""
-    # Remove markdown headers while keeping the text
-    clean_text = re.sub(r'^#+\s*', '', markdown_text, flags=re.MULTILINE)
-
-    # Add proper spacing between sections
-    clean_text = re.sub(r'\n{3,}', '\n\n', clean_text)
-
-    # Format the text for better readability
-    lines = clean_text.split('\n')
-    formatted_lines = []
-
-    for line in lines:
-        # Add proper indentation for list items
-        if line.strip().startswith('- '):
-            formatted_lines.append('  ' + line)
-        else:
-            formatted_lines.append(line)
-
-    return '\n'.join(formatted_lines)
-
-
 if st.button("🎮 Generate Project Ideas", use_container_width=True):
     if not topic.strip():
         st.error("🚫 Please enter a valid topic to generate project ideas.")
@@ -120,13 +155,13 @@ if st.button("🎮 Generate Project Ideas", use_container_width=True):
                 "3. Key learning outcomes\n"
                 "4. Main technologies/tools needed\n\n"
                 "Format each project nicely with clear sections and make them progressively more challenging. "
-
+                "Use clear spacing between projects and sections."
             )
 
             chat_completion = client.chat.completions.create(
                 messages=[
                     {"role": "system",
-                     "content": "You are an experienced tech mentor and project ideas generator. Format your response using plain text with clear spacing and organization instead of markdown headers."},
+                     "content": "You are an experienced tech mentor and project ideas generator. Format your response with clear sections and proper spacing."},
                     {"role": "user", "content": prompt},
                 ],
                 model="llama-3.3-70b-versatile",
@@ -149,15 +184,15 @@ if st.button("🎮 Generate Project Ideas", use_container_width=True):
             st.subheader("🎯 Your Personalized Project Ideas")
             st.markdown(response)
 
-            # Format the download version without markdown
-            download_text = format_for_download(response)
+            # Generate PDF
+            pdf_bytes = create_pdf(topic, response.replace('#', '').replace('*', '\t*'))
 
-            # Add a download button with cleaned format
+            # Add a download button for PDF
             st.download_button(
-                label="📥 Download Project Ideas",
-                data=download_text,
-                file_name=f"{topic}_project_ideas.txt",
-                mime="text/plain"
+                label="📥 Download Project Ideas (PDF)",
+                data=pdf_bytes,
+                file_name=f"{topic}_project_ideas.pdf",
+                mime="application/pdf"
             )
 
         except Exception as e:
