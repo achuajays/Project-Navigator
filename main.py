@@ -5,7 +5,7 @@ from groq import Groq
 client = Groq()
 
 # Set up the Streamlit page
-st.set_page_config(page_title="AI Project Ideas Generator", layout="centered")
+st.set_page_config(page_title="Project Navigator", layout="centered")
 st.title("Project Ideas Generator for Mastery")
 st.write("Enter a topic and select the desired project difficulty and completion time, then get 5 project ideas!")
 
